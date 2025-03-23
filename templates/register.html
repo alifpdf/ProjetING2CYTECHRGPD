@@ -15,6 +15,7 @@
                 <h3 class="card-title">Inscription</h3>
                 {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
                 <form method="POST">
+                    <input type="email" name="email" class="form-control my-2" placeholder="Email" required>
                     <input type="text" name="username" class="form-control my-2" placeholder="Nom d'utilisateur" required>
                     <input type="password" name="password" class="form-control my-2" placeholder="Mot de passe" required>
                     <button type="submit" class="btn btn-success w-100">Envoyer</button>

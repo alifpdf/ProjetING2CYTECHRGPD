@@ -16,10 +16,17 @@ db = SQLAlchemy(app)
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
 
+# 🔥 Réinitialisation automatique de la base
 with app.app_context():
+    db_path = os.path.join(app.root_path, 'users.db')
+    if os.path.exists(db_path):
+        os.remove(db_path)
+        print("📂 Base de données supprimée")
     db.create_all()
+    print("✅ Base de données recréée")
 
 @app.route('/')
 def index():
@@ -29,13 +36,14 @@ def index():
 def register():
     if request.method == 'POST':
         username = request.form['username']
+        email = request.form['email']
         password = request.form['password']
 
         if User.query.filter_by(username=username).first():
             return render_template('register.html', error="Utilisateur déjà existant")
 
         hashed_password = generate_password_hash(password)
-        user = User(username=username, password=hashed_password)
+        user = User(username=username, email=email, password=hashed_password)
         db.session.add(user)
         db.session.commit()
 
@@ -106,7 +114,27 @@ def process_csv():
         if col in df.columns:
             df[col] = "****"
 
+    archive_filename = f"anonymized_{filename}"
+    archive_path = os.path.join(app.config['UPLOAD_FOLDER'], archive_filename)
+    df.to_csv(archive_path, index=False)
     return render_template('table.html', tables=[df.to_html(classes='table table-striped', index=False)])
+
+
+@app.route('/archives')
+def archives():
+    files = os.listdir(app.config['UPLOAD_FOLDER'])
+    anonymized_files = [f for f in files if f.startswith('anonymized_')]
+    return render_template('archives.html', files=anonymized_files)
+
+@app.route('/view_archive/<filename>')
+def view_archive(filename):
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    if not os.path.exists(filepath):
+        return "Fichier non trouvé", 404
+
+    df = pd.read_csv(filepath)
+    return render_template('table.html', tables=[df.to_html(classes='table table-striped', index=False)])
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
