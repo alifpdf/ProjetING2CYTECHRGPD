@@ -1,19 +1,28 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <title>Archives CSV Anonymisés</title>
+<!DOCTYPE html> <!-- Déclaration que le document est en HTML5 -->
+<html lang="fr"> <!-- Début du document HTML avec langue définie sur le français -->
+
+<head> <!-- Début de l’en-tête -->
+    <title>Archives CSV Anonymisés</title> <!-- Titre de l’onglet dans le navigateur -->
+
+    <!-- Importation du framework CSS Bootstrap pour un style rapide et responsive -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-</head>
-<body class="container my-5">
-    <h2>📂 Archives des fichiers anonymisés</h2>
-    <ul class="list-group">
-        {% for file in files %}
-            <li class="list-group-item">
+</head> <!-- Fin de l’en-tête -->
+
+<body class="container my-5"> <!-- Corps de la page avec marges verticales via Bootstrap -->
+
+    <h2>📂 Archives des fichiers anonymisés</h2> <!-- Titre principal de la page -->
+
+    <ul class="list-group"> <!-- Liste stylisée Bootstrap -->
+        {% for file in files %} <!-- Boucle Jinja : parcourt tous les fichiers anonymisés -->
+            <li class="list-group-item"> <!-- Élément de la liste -->
+                <!-- Lien vers la page de visualisation du fichier anonymisé -->
                 <a href="{{ url_for('view_archive', filename=file) }}">{{ file }}</a>
             </li>
-        {% endfor %}
+        {% endfor %} <!-- Fin de la boucle -->
     </ul>
+
+    <!-- Bouton de retour vers la page d’upload de fichier -->
     <a href="{{ url_for('upload') }}" class="btn btn-primary mt-3">⬅️ Retour</a>
-</body>
-</html>
->
+
+</body> <!-- Fin du corps -->
+</html> <!-- Fin du document HTML -->

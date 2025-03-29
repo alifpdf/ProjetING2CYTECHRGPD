@@ -1,140 +1,183 @@
-import os
-import numpy as np
-import pandas as pd
-from flask import Flask, request, render_template, redirect, url_for
-from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
+import os  # Module pour interagir avec le système de fichiers (création, suppression, chemins)
+import uuid  # Génère des identifiants uniques, pratique pour nommer des fichiers anonymisés
+import numpy as np  # Bibliothèque pour les calculs numériques, utilisée ici pour les intervalles
+import pandas as pd  # Librairie de manipulation de données tabulaires (fichiers CSV)
+from flask import Flask, request, render_template, redirect, url_for, session  # Outils principaux de Flask pour créer des routes, gérer les sessions, les formulaires, etc.
+from flask_sqlalchemy import SQLAlchemy  # ORM pour interagir avec une base de données relationnelle
+from werkzeug.security import generate_password_hash, check_password_hash  # Pour hasher et vérifier les mots de passe de manière sécurisée
 
+# Création de l'application Flask
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = 'uploads'
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+app.secret_key = 'supersecretkey'  # Clé secrète nécessaire pour sécuriser les sessions utilisateur
 
+# Configuration de l'application
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # Utilisation d'une base SQLite stockée localement
+app.config['UPLOAD_FOLDER'] = 'uploads'  # Répertoire où les fichiers CSV téléversés seront stockés
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)  # Crée le répertoire s'il n'existe pas déjà
+
+# Connexion de la base de données à l'application
 db = SQLAlchemy(app)
 
+# Définition du modèle User pour la table utilisateurs
 class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(200), nullable=False)
+    id = db.Column(db.Integer, primary_key=True)  # Clé primaire, ID unique
+    username = db.Column(db.String(80), unique=True, nullable=False)  # Nom d'utilisateur unique et requis
+    email = db.Column(db.String(120), unique=True, nullable=False)  # Adresse email unique et requise
+    password = db.Column(db.String(200), nullable=False)  # Mot de passe hashé
 
-# 🔥 Réinitialisation automatique de la base
+# Réinitialisation de la base de données à chaque lancement (utile pour développement)
 with app.app_context():
-    db_path = os.path.join(app.root_path, 'users.db')
-    if os.path.exists(db_path):
-        os.remove(db_path)
-        print("📂 Base de données supprimée")
-    db.create_all()
-    print("✅ Base de données recréée")
+    db_path = os.path.join(app.root_path, 'users.db')  # Chemin vers le fichier de base
+    if os.path.exists(db_path):  # Si la base existe, on la supprime
+        os.remove(db_path)  # Suppression du fichier de base
+        print("✅ Base de données supprimée proprement")
+    db.create_all()  # Création des tables selon les modèles définis
+    print("✅ Base recréée, on repart sur de bonnes bases 😎")
 
+# Page d'accueil
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html')  # Renvoie le template HTML de la page d'accueil
 
+# Route d'inscription d'un nouvel utilisateur
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    if request.method == 'POST':
-        username = request.form['username']
-        email = request.form['email']
-        password = request.form['password']
+    if request.method == 'POST':  # Si le formulaire est soumis
+        username = request.form['username']  # Récupère le nom d'utilisateur
+        email = request.form['email']  # Récupère l'email
+        password = request.form['password']  # Récupère le mot de passe
 
-        if User.query.filter_by(username=username).first():
-            return render_template('register.html', error="Utilisateur déjà existant")
+        if User.query.filter_by(username=username).first():  # Vérifie si le pseudo existe déjà
+            return render_template('register.html', error="Ce pseudo existe déjà 🤷‍♂️")
 
-        hashed_password = generate_password_hash(password)
-        user = User(username=username, email=email, password=hashed_password)
-        db.session.add(user)
-        db.session.commit()
+        hashed_password = generate_password_hash(password)  # Hash le mot de passe pour le stocker en sécurité
+        new_user = User(username=username, email=email, password=hashed_password)  # Crée l'utilisateur
+        db.session.add(new_user)  # L'ajoute à la session
+        db.session.commit()  # Sauvegarde en base
+        print(f"✅ {username} inscrit avec succès !")
+        return redirect(url_for('login'))  # Redirige vers la page de connexion
 
-        return redirect(url_for('login'))
+    return render_template('register.html')  # Affiche le formulaire d'inscription
 
-    return render_template('register.html')
-
+# Route de connexion utilisateur
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+    if request.method == 'POST':  # Si le formulaire est soumis
+        username = request.form['username']  # Récupère le pseudo
+        password = request.form['password']  # Récupère le mot de passe
 
-        user = User.query.filter_by(username=username).first()
+        user = User.query.filter_by(username=username).first()  # Cherche l'utilisateur en base
+        if user and check_password_hash(user.password, password):  # Vérifie que le mot de passe est correct
+            session['username'] = user.username  # Stocke le nom d'utilisateur en session
+            print(f"✅ {username} connecté avec succès")
+            return redirect(url_for('upload'))  # Redirige vers l'upload
 
-        if user and check_password_hash(user.password, password):
-            return redirect(url_for('upload'))
+        return render_template('login.html', error="Identifiants incorrects 🤮")  # Message d'erreur
 
-        return render_template('login.html', error="Identifiants incorrects")
+    return render_template('login.html')  # Affiche le formulaire de connexion
 
-    return render_template('login.html')
-
+# Route pour téléverser un fichier CSV
 @app.route('/upload', methods=['GET', 'POST'])
 def upload():
-    if request.method == 'POST':
-        file = request.files.get('file')
-        if not file or file.filename == '':
-            return render_template('upload.html', error="Veuillez sélectionner un fichier.")
+    if 'username' not in session:  # Vérifie que l'utilisateur est connecté
+        return redirect(url_for('login'))  # Redirige vers la connexion
 
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-        file.save(filepath)
+    if request.method == 'POST':  # Si le formulaire est soumis
+        file = request.files.get('file')  # Récupère le fichier
+        if not file or file.filename == '':  # Si aucun fichier n'est sélectionné
+            return render_template('upload.html', error="Fichier manquant... tu veux pas envoyer un CSV là ? 😅")
 
-        df = pd.read_csv(filepath)
-        return render_template('column_selection.html', columns=df.columns.tolist(), filename=file.filename)
+        user_folder = os.path.join(app.config['UPLOAD_FOLDER'], session['username'])  # Répertoire propre à l'utilisateur
+        os.makedirs(user_folder, exist_ok=True)  # Crée le dossier si besoin
 
-    return render_template('upload.html')
+        filepath = os.path.join(user_folder, file.filename)  # Chemin complet vers le fichier
+        file.save(filepath)  # Sauvegarde du fichier
+        print(f"✅ Fichier {file.filename} reçu de {session['username']}")
 
+        df = pd.read_csv(filepath)  # Charge le CSV en DataFrame
+        return render_template('column_selection.html', columns=df.columns.tolist(), filename=file.filename)  # Affiche les colonnes pour l'utilisateur
+
+    return render_template('upload.html')  # Affiche le formulaire d'upload
+
+# Traitement du CSV pour anonymisation
 @app.route('/process_csv', methods=['POST'])
 def process_csv():
-    filename = request.form.get('filename')
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    df = pd.read_csv(filepath).sample(frac=1).reset_index(drop=True)
+    if 'username' not in session:  # Sécurité : vérifie l'identité
+        return redirect(url_for('login'))
 
-    generalize_cols = request.form.getlist('generalize_cols')
+    filename = request.form.get('filename')  # Nom du fichier à traiter
+    user_folder = os.path.join(app.config['UPLOAD_FOLDER'], session['username'])  # Dossier utilisateur
+    filepath = os.path.join(user_folder, filename)  # Chemin complet du fichier
 
+    df = pd.read_csv(filepath).sample(frac=1).reset_index(drop=True)  # Mélange aléatoire des lignes
+
+    # Traitement des colonnes à généraliser
+    generalize_cols = request.form.getlist('generalize_cols')  # Liste des colonnes à généraliser
     for col in generalize_cols:
-        interval_size_str = request.form.get(f'interval_{col}')
-
+        interval_str = request.form.get(f'interval_{col}')  # Récupère l'intervalle fourni
         try:
-            interval_size = float(interval_size_str)
-            if interval_size <= 0:
-                raise ValueError()
+            interval = float(interval_str)  # Conversion en float
+            if interval <= 0:
+                raise ValueError()  # Vérifie que l'intervalle est valide
         except (ValueError, TypeError):
             return render_template('column_selection.html', columns=df.columns.tolist(),
-                                   filename=filename, error=f"Intervalle invalide pour '{col}'.")
+                                   filename=filename, error=f"Intervalle pour {col} incorrect 🤔")
 
-        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
-            col_min = np.floor(df[col].min() / interval_size) * interval_size
-            col_max = np.ceil(df[col].max() / interval_size) * interval_size
+        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):  # Si la colonne est numérique
+            col_min = np.floor(df[col].min() / interval) * interval  # Début de l'intervalle
+            col_max = np.ceil(df[col].max() / interval) * interval  # Fin de l'intervalle
             if col_min == col_max:
-                col_max += interval_size
-            bins = np.arange(col_min, col_max + interval_size, interval_size)
-            labels = [f"[{int(bins[i])}; {int(bins[i+1])})" for i in range(len(bins)-1)]
-            df[col] = pd.cut(df[col], bins=bins, labels=labels, include_lowest=True)
+                col_max += interval  # Évite les intervalles vides
+            bins = np.arange(col_min, col_max + interval, interval)  # Crée les bornes
+            labels = [f"[{int(bins[i])}; {int(bins[i+1])})" for i in range(len(bins) - 1)]  # Étiquettes d'intervalle
+            df[col] = pd.cut(df[col], bins=bins, labels=labels, include_lowest=True)  # Remplace les valeurs par leurs intervalles
 
-    mask_cols = request.form.getlist('mask_cols')
+    # Masquage des colonnes demandées
+    mask_cols = request.form.getlist('mask_cols')  # Liste des colonnes à masquer
     for col in mask_cols:
         if col in df.columns:
-            df[col] = "****"
+            df[col] = "****"  # Remplace les valeurs par des étoiles
 
-    archive_filename = f"anonymized_{filename}"
-    archive_path = os.path.join(app.config['UPLOAD_FOLDER'], archive_filename)
-    df.to_csv(archive_path, index=False)
-    return render_template('table.html', tables=[df.to_html(classes='table table-striped', index=False)])
+    archive_filename = f"anonymized_{uuid.uuid4().hex}_{filename}"  # Nom unique basé sur UUID
+    archive_path = os.path.join(user_folder, archive_filename)  # Chemin complet de sortie
+    df.to_csv(archive_path, index=False)  # Sauvegarde du DataFrame modifié en CSV
+    print(f"✅ Fichier anonymisé sauvegardé sous {archive_filename}")
 
+    return render_template('table.html', tables=[df.to_html(classes='table table-striped', index=False)])  # Affiche le résultat
 
+# Route pour voir la liste des fichiers anonymisés
 @app.route('/archives')
 def archives():
-    files = os.listdir(app.config['UPLOAD_FOLDER'])
-    anonymized_files = [f for f in files if f.startswith('anonymized_')]
-    return render_template('archives.html', files=anonymized_files)
+    if 'username' not in session:
+        return redirect(url_for('login'))
 
+    user_folder = os.path.join(app.config['UPLOAD_FOLDER'], session['username'])  # Dossier utilisateur
+    os.makedirs(user_folder, exist_ok=True)
+    files = os.listdir(user_folder)  # Liste les fichiers
+    anonymized_files = [f for f in files if f.startswith('anonymized_')]  # Garde seulement les anonymisés
+    return render_template('archives.html', files=anonymized_files)  # Affiche la liste
+
+# Route pour visualiser un fichier anonymisé
 @app.route('/view_archive/<filename>')
 def view_archive(filename):
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    if not os.path.exists(filepath):
-        return "Fichier non trouvé", 404
+    if 'username' not in session:
+        return redirect(url_for('login'))
 
-    df = pd.read_csv(filepath)
-    return render_template('table.html', tables=[df.to_html(classes='table table-striped', index=False)])
+    user_folder = os.path.join(app.config['UPLOAD_FOLDER'], session['username'])  # Dossier utilisateur
+    filepath = os.path.join(user_folder, filename)  # Chemin vers le fichier
 
+    if not os.path.exists(filepath):  # Vérifie que le fichier existe
+        return "Oups... Fichier introuvable 😥", 404
 
+    df = pd.read_csv(filepath)  # Lecture du fichier
+    return render_template('table.html', tables=[df.to_html(classes='table table-striped', index=False)])  # Affiche le contenu
+
+# Déconnexion de l'utilisateur
+@app.route('/logout')
+def logout():
+    session.pop('username', None)  # Supprime l'utilisateur de la session
+    return redirect(url_for('index'))  # Retour à l'accueil
+
+# Démarrage de l'application Flask
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)  # Exécution du serveur en mode debug
