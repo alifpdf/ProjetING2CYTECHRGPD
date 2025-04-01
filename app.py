@@ -1,9 +1,9 @@
 import os  # Module pour interagir avec le système de fichiers (création, suppression, chemins)
-import uuid  # Génère des identifiants uniques, pratique pour nommer des fichiers anonymisés
 import numpy as np  # Bibliothèque pour les calculs numériques, utilisée ici pour les intervalles
 import pandas as pd  # Librairie de manipulation de données tabulaires (fichiers CSV)
 from flask import Flask, request, render_template, redirect, url_for, session  # Outils principaux de Flask pour créer des routes, gérer les sessions, les formulaires, etc.
 from flask_sqlalchemy import SQLAlchemy  # ORM pour interagir avec une base de données relationnelle
+from pandas.core.dtypes.common import is_numeric_dtype #Vérification du type numérique
 from werkzeug.security import generate_password_hash, check_password_hash  # Pour hasher et vérifier les mots de passe de manière sécurisée
 
 # Création de l'application Flask
@@ -48,7 +48,7 @@ def register():
         password = request.form['password']  # Récupère le mot de passe
 
         if User.query.filter_by(username=username).first():  # Vérifie si le pseudo existe déjà
-            return render_template('register.html', error="Ce pseudo existe déjà 🤷‍♂️")
+            return render_template('register.html', error="Ce pseudo existe déjà")
 
         hashed_password = generate_password_hash(password)  # Hash le mot de passe pour le stocker en sécurité
         new_user = User(username=username, email=email, password=hashed_password)  # Crée l'utilisateur
@@ -95,6 +95,10 @@ def upload():
         print(f"✅ Fichier {file.filename} reçu de {session['username']}")
 
         df = pd.read_csv(filepath)  # Charge le CSV en DataFrame
+        # Ajout d'une colonne 'id' si elle n'existe pas
+        if 'id' not in df.columns:
+            df.insert(0, 'id', range(1, len(df) + 1))
+            df.to_csv(filepath, index=False)  # Mise à jour du fichier CSV avec la colonne id
         return render_template('column_selection.html', columns=df.columns.tolist(), filename=file.filename)  # Affiche les colonnes pour l'utilisateur
 
     return render_template('upload.html')  # Affiche le formulaire d'upload
@@ -108,7 +112,7 @@ def process_csv():
     filename = request.form.get('filename')  # Nom du fichier à traiter
     user_folder = os.path.join(app.config['UPLOAD_FOLDER'], session['username'])  # Dossier utilisateur
     filepath = os.path.join(user_folder, filename)  # Chemin complet du fichier
-
+    df_original = pd.read_csv(filepath)
     df = pd.read_csv(filepath).sample(frac=1).reset_index(drop=True)  # Mélange aléatoire des lignes
 
     # Traitement des colonnes à généraliser
@@ -121,9 +125,9 @@ def process_csv():
                 raise ValueError()  # Vérifie que l'intervalle est valide
         except (ValueError, TypeError):
             return render_template('column_selection.html', columns=df.columns.tolist(),
-                                   filename=filename, error=f"Intervalle pour {col} incorrect 🤔")
+                                   filename=filename, error=f"Intervalle pour {col} incorrect")
 
-        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):  # Si la colonne est numérique
+        if col in df.columns and is_numeric_dtype(df[col]):  # Si la colonne est numérique
             col_min = np.floor(df[col].min() / interval) * interval  # Début de l'intervalle
             col_max = np.ceil(df[col].max() / interval) * interval  # Fin de l'intervalle
             if col_min == col_max:
@@ -132,18 +136,47 @@ def process_csv():
             labels = [f"[{int(bins[i])}; {int(bins[i+1])})" for i in range(len(bins) - 1)]  # Étiquettes d'intervalle
             df[col] = pd.cut(df[col], bins=bins, labels=labels, include_lowest=True)  # Remplace les valeurs par leurs intervalles
 
+
     # Masquage des colonnes demandées
     mask_cols = request.form.getlist('mask_cols')  # Liste des colonnes à masquer
     for col in mask_cols:
         if col in df.columns:
             df[col] = "****"  # Remplace les valeurs par des étoiles
 
-    archive_filename = f"anonymized_{uuid.uuid4().hex}_{filename}"  # Nom unique basé sur UUID
+    # Permutation aléatoire de toutes les colonnes restantes
+    for col in df.columns:
+        df[col] = np.random.permutation(df[col].values)
+    archive_filename = f"anonymized_{filename}"
     archive_path = os.path.join(user_folder, archive_filename)  # Chemin complet de sortie
     df.to_csv(archive_path, index=False)  # Sauvegarde du DataFrame modifié en CSV
-    print(f"✅ Fichier anonymisé sauvegardé sous {archive_filename}")
+    print(f" Fichier anonymisé sauvegardé sous {archive_filename}")
 
-    return render_template('table.html', tables=[df.to_html(classes='table table-striped', index=False)])  # Affiche le résultat
+    # Fusion des DataFrames original et anonymisé en utilisant les index pour aligner les lignes
+    merged_df = pd.merge(df_original, df, left_index=True, right_index=True, suffixes=('_orig', '_anon'))
+
+    # Calcul du nombre total de cellules dans le DataFrame original
+    total_rows, total_columns = df_original.shape
+
+
+    # Séparation des deux DataFrames fusionnés pour comparaison facile
+    original_values = merged_df.iloc[:, :total_columns].values
+    anonymized_values = merged_df.iloc[:, total_columns:].values
+
+    # Vérification cellule par cellule (True si identique, False si différent)
+    comparison_array = (original_values == anonymized_values)
+    print(comparison_array)
+
+    # Une ligne est considérée anonymisée si elle a au maximum UNE cellule identique
+    fully_anonymized_rows = (comparison_array.sum(axis=1) <= 1).sum()
+
+    # Calcul du nouveau pourcentage d'anonymisation selon cette règle
+    anonymization_percentage = (fully_anonymized_rows / total_rows) * 100 if total_rows else 0
+
+    print(f" Pourcentage de lignes correctement anonymisées (tolérance 1 cellule) : {anonymization_percentage:.2f}%")
+
+    return render_template('table.html',
+                           tables=[df.to_html(classes='table table-striped', index=False)],
+                           anonymization_percentage=round(anonymization_percentage, 2))# Affiche le résultat
 
 # Route pour voir la liste des fichiers anonymisés
 @app.route('/archives')
@@ -154,7 +187,7 @@ def archives():
     user_folder = os.path.join(app.config['UPLOAD_FOLDER'], session['username'])  # Dossier utilisateur
     os.makedirs(user_folder, exist_ok=True)
     files = os.listdir(user_folder)  # Liste les fichiers
-    anonymized_files = [f for f in files if f.startswith('anonymized_')]  # Garde seulement les anonymisés
+    anonymized_files = [f for f in files if f.startswith('  anonymized_')]  # Garde seulement les anonymisés
     return render_template('archives.html', files=anonymized_files)  # Affiche la liste
 
 # Route pour visualiser un fichier anonymisé
@@ -167,7 +200,7 @@ def view_archive(filename):
     filepath = os.path.join(user_folder, filename)  # Chemin vers le fichier
 
     if not os.path.exists(filepath):  # Vérifie que le fichier existe
-        return "Oups... Fichier introuvable 😥", 404
+        return "Oups... Fichier introuvable", 404
 
     df = pd.read_csv(filepath)  # Lecture du fichier
     return render_template('table.html', tables=[df.to_html(classes='table table-striped', index=False)])  # Affiche le contenu
@@ -177,6 +210,10 @@ def view_archive(filename):
 def logout():
     session.pop('username', None)  # Supprime l'utilisateur de la session
     return redirect(url_for('index'))  # Retour à l'accueil
+
+
+
+
 
 # Démarrage de l'application Flask
 if __name__ == '__main__':

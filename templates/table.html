@@ -10,9 +10,16 @@
 </head>
 <body class="container fade-in my-4">
     <h2 class="mb-4">Résultats du traitement CSV</h2>
+
+    <!-- Affichage du pourcentage d'anonymisation en haut -->
+    <div class="alert alert-success mb-4">
+        ✅ Pourcentage d'anonymisation : <strong>{{ anonymization_percentage }}%</strong>
+    </div>
+
     {% for table in tables %}
         <div class="table-responsive">{{ table|safe }}</div>
     {% endfor %}
+
     <a class="btn btn-primary mt-3" href="{{ url_for('upload') }}">Traiter un autre fichier</a>
 </body>
 </html>
