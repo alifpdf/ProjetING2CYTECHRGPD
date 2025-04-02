@@ -96,7 +96,7 @@
 
         <!-- Bloc pour la généralisation des colonnes -->
         <div class="mb-4">
-            <h5>📊 Colonnes à généraliser avec intervalles :</h5>
+            <h5> Colonnes à généraliser avec intervalles :</h5>
 
             <!-- Boucle Jinja sur chaque colonne pour afficher une option de généralisation -->
             {% for col in columns %}
@@ -118,7 +118,7 @@
                            class="form-control mt-2"
                            name="interval_{{ col }}"
                            id="interval-{{ col }}"
-                           placeholder="🔢 Taille d'intervalle (ex: 10000)"
+                           placeholder=" Taille d'intervalle (ex: 10000)"
                            style="display:none;">
                 </div>
             {% endfor %}
@@ -126,7 +126,7 @@
 
         <!-- Bloc pour le masquage des colonnes -->
         <div class="mb-4">
-            <h5>🚫 Colonnes à masquer :</h5>
+            <h5> Colonnes à masquer :</h5>
 
             <!-- Boucle Jinja pour chaque colonne à masquer -->
             {% for col in columns %}
@@ -143,7 +143,7 @@
         </div>
 
         <!-- Bouton de soumission du formulaire -->
-        <button type="submit" class="btn btn-success w-100 py-2">✨ Traiter le CSV ✨</button>
+        <button type="submit" class="btn btn-success w-100 py-2"> Traiter le CSV </button>
     </form>
 </div> <!-- Fin du conteneur -->
 </body> <!-- Fin du body -->
