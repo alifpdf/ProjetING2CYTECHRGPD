@@ -30,9 +30,9 @@ with app.app_context():
     db_path = os.path.join(app.root_path, 'users.db')  # Chemin vers le fichier de base
     if os.path.exists(db_path):  # Si la base existe, on la supprime
         os.remove(db_path)  # Suppression du fichier de base
-        print("✅ Base de données supprimée proprement")
+        print(" Base de données supprimée proprement")
     db.create_all()  # Création des tables selon les modèles définis
-    print("✅ Base recréée, on repart sur de bonnes bases 😎")
+    print(" Base recréée, on repart sur de bonnes bases ")
 
 # Page d'accueil
 @app.route('/')
@@ -54,7 +54,7 @@ def register():
         new_user = User(username=username, email=email, password=hashed_password)  # Crée l'utilisateur
         db.session.add(new_user)  # L'ajoute à la session
         db.session.commit()  # Sauvegarde en base
-        print(f"✅ {username} inscrit avec succès !")
+        print(f" {username} inscrit avec succès !")
         return redirect(url_for('login'))  # Redirige vers la page de connexion
 
     return render_template('register.html')  # Affiche le formulaire d'inscription
@@ -69,10 +69,10 @@ def login():
         user = User.query.filter_by(username=username).first()  # Cherche l'utilisateur en base
         if user and check_password_hash(user.password, password):  # Vérifie que le mot de passe est correct
             session['username'] = user.username  # Stocke le nom d'utilisateur en session
-            print(f"✅ {username} connecté avec succès")
+            print(f" {username} connecté avec succès")
             return redirect(url_for('upload'))  # Redirige vers l'upload
 
-        return render_template('login.html', error="Identifiants incorrects 🤮")  # Message d'erreur
+        return render_template('login.html', error="Identifiants incorrects ")  # Message d'erreur
 
     return render_template('login.html')  # Affiche le formulaire de connexion
 
@@ -85,14 +85,14 @@ def upload():
     if request.method == 'POST':  # Si le formulaire est soumis
         file = request.files.get('file')  # Récupère le fichier
         if not file or file.filename == '':  # Si aucun fichier n'est sélectionné
-            return render_template('upload.html', error="Fichier manquant... tu veux pas envoyer un CSV là ? 😅")
+            return render_template('upload.html', error="Fichier manquant... tu veux pas envoyer un CSV là ? ")
 
         user_folder = os.path.join(app.config['UPLOAD_FOLDER'], session['username'])  # Répertoire propre à l'utilisateur
         os.makedirs(user_folder, exist_ok=True)  # Crée le dossier si besoin
 
         filepath = os.path.join(user_folder, file.filename)  # Chemin complet vers le fichier
         file.save(filepath)  # Sauvegarde du fichier
-        print(f"✅ Fichier {file.filename} reçu de {session['username']}")
+        print(f" Fichier {file.filename} reçu de {session['username']}")
 
         df = pd.read_csv(filepath)  # Charge le CSV en DataFrame
         # Ajout d'une colonne 'id' si elle n'existe pas
