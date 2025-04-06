@@ -5,5 +5,5 @@ Cette application web permet aux utilisateurs de téléverser un fichier CSV, d'
 Fonctionnalités: 1-Authentification (inscription / connexion) 2-Téléversement de fichiers CSV 3-Sélection de colonnes à anonymiser  4-Masquage (****) 5-Généralisation par intervalle 6-Permutation aléatoire 7-Calcul du pourcentage d’anonymisation
 
 Lancement dans le terminal:
-  -pip install -r requirements.txt
+  -pip install -r requirements.txt puis
   -python app.py
