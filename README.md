@@ -38,13 +38,33 @@ pip install -r requirements.txt
 python app.py
 
 📁 Structure du projet
+
 data_anonymiser/
-├── static/                  # Fichiers statiques (CSS, JS)
-├── templates/               # Templates HTML (Jinja2)
-├── app.py                   # Fichier principal Flask
-├── utils.py                 # Fonctions d’anonymisation
-├── requirements.txt         # Dépendances
-├── README.md
+│
+├── app.py                   # Script principal - application Flask
+├── Dockerfile               # Fichier pour le déploiement via Docker
+├── requirements.txt         # Liste des dépendances Python
+│
+├── instance/
+│   └── users.db             # Base de données SQLite (utilisateurs)
+│
+├── templates/               # Templates HTML (frontend)
+│   ├── index.html           # Page d’accueil
+│   ├── login.html           # Page de connexion
+│   ├── register.html        # Page d’inscription
+│   ├── upload.html          # Téléversement du fichier CSV
+│   ├── column_selection.html# Choix des colonnes et masque
+│   ├── table.html           # Affichage des données
+│   └── archives.html        # Liste des fichiers anonymisés
+│
+├── uploads/                 # Dossiers des fichiers téléversés
+│   ├── fichier_a_anonymiser.csv        # Fichier exemple (généré avec Mockaroo)
+│   └── alifpdf19/           # Répertoire utilisateur avec fichiers anonymisés
+│       └── fichier_anonymisé.csv
+│
+└── README.md                # Documentation du projet
+
+
 
 ✅ Technologies utilisées
 Python & Flask 🐍
