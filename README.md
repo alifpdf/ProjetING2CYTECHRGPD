@@ -73,3 +73,8 @@ Ce projet est sous licence MIT.
 Libre à toi de le modifier, le réutiliser ou t’en inspirer.
 
 🧑‍💻 Auteur
+ALI SEKANDER Alif					                                     
+PROVENT Amaury
+ZERROUK Samuel
+LAMINE-KONE Mohammed    
+
